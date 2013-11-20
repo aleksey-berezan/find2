@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2011/08/nuspec.xsd">
+  <metadata>
+    <id>Option</id>
+    <version>2.0.2</version>
+    <title>Option</title>
+    <authors>Tom Jacques</authors>
+    <owners>Tom Jacques</owners>
+    <licenseUrl>https://github.com/tejacques/Option/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/tejacques/Option/</projectUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <description>Binaries for the Option type.
+        Visit https://github.com/tejacques/Option for an overview and usage examples.</description>
+    <summary>An open source Option type for C#.</summary>
+    <releaseNotes>Version Release Notes:
+
+        Version 2.0.2:
+         - Fix DebuggerDisplay
+         - Add Documentation to Option&lt;T&gt;.Some;
+
+        Version 2.0.1:
+         - Allow Some&lt;T&gt; to have its value updated.
+         - OptionPatternMatcher's default value Option value is now Option.None.
+         - Fix edge case inequality operator.
+
+        Version 2.0.0:
+         - Added functional pattern matching as a fluent API to Options in the form:
+           var matcher = Option&lt;T&gt;.PatternMatch()
+              .None(() =&gt; { /* Action when the Option is None */ })
+              .Some(value, () =&gt; { /* Action when the Option is value */ })
+              .Some((value) =&gt; { /* Action when the Option is Some&lt;T&gt; */ });
+
+          matcher.Result(Option&lt;T&gt; option); /* Will run the appropriately matched action on the option */
+
+          These are also present as instance functions on Option&lt;T&gt;:
+
+          Option&lt;int&gt; option = getOptionFromMethodCall();
+
+          var result = option.Match&lt;string&gt;()
+              .None(() =&gt; "None")
+              .Some(0, () =&gt; "Zero")
+              .Some((value) =&gt; value.ToString())
+              .Result();
+
+         - Pattern matching matches one and only one pattern.
+         - Tests have 100% code coverage.
+         - New Some&lt;T&gt; and None&lt;T&gt; classes.
+
+         - Breaking Changes:
+           - From() method replaced with Some().
+           - ToOption() extension method has been removed.
+
+        Version 1.0.1:
+         - Include documentation.
+
+        Version 1.0.0:
+         - Adds the Option type to the System.Option namespace.</releaseNotes>
+    <copyright>Copyright 2013</copyright>
+    <tags>Option Some None Maybe</tags>
+  </metadata>
+</package>
