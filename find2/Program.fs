@@ -31,7 +31,7 @@ let internal getFilesByWildcard workingDirectory fileNamePattern =
 
 let internal fileToUri (file:FileInfo) =
     sprintf "file://%s" (file.FullName.Replace(@"\", "/"))
-
+     
 let internal joinLines (lines:seq<string>) = 
     String.Join(Environment.NewLine, lines)
 
@@ -53,19 +53,23 @@ let internal matches (line:string) (options:CommandLineOptions) =
     let hasLotsOfNonPrintableCharacters l = Regex.IsMatch(l, @"[^ -~\t\n]{3}")
     let up (s:string) = s.ToUpperInvariant()
 
-    let textPattern = options.TextPattern
+    let pattern = if String.IsNullOrEmpty options.TextPattern
+                      then options.TextRegexPattern
+                      else options.TextPattern
     let isTextPatternRegex = options.IsTextPatternRegex
 
     if hasLotsOfNonPrintableCharacters line
     then false
     else
         if isTextPatternRegex
-        then matchesRegex line textPattern
-        else (line |> up).Contains(textPattern |> up)
+        then matchesRegex line pattern
+        else (line |> up).Contains(pattern |> up)
              && satisfiesGreps (line |> up) (options.GrepsString |> up)             
 
 let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) = 
-    let textPattern = options.TextPattern
+    let pattern = if String.IsNullOrEmpty options.TextPattern
+                      then options.TextRegexPattern
+                      else options.TextPattern
     let isTextPatternRegex = options.IsTextPatternRegex
     let skipLargeFiles = not(options.MatchLargeFiles)
     let isTooLarge (fileInfo:FileInfo) = fileInfo.Length > int64(64 * 1024 * 1024)// 64 mb
@@ -73,10 +77,10 @@ let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
         [".exe"; ".dll"; ".pdb"; ".trc"]
         |> Seq.exists (fun ext -> ext = Path.GetExtension fileInfo.FullName)
 
-    if String.IsNullOrEmpty textPattern
+    if String.IsNullOrEmpty pattern
         || isBinaryFile fileInfo
         || skipLargeFiles && isTooLarge fileInfo
-    then FileMatchInfo.NoMatches fileInfo     
+    then FileMatchInfo.NoMatches fileInfo
     else
         match getFilesLines fileInfo.FullName with
         | None -> FileMatchInfo.NoMatches fileInfo
@@ -89,7 +93,6 @@ let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
 
 [<EntryPoint>]
 let main argv = 
-    printfn "%A" argv
 
     let mutable exitCode = 2
     // pure imperative code, not cool ...
@@ -97,21 +100,21 @@ let main argv =
     // with all the monads and stuff ...
 
     try
-        let arguments = CommandLineOptions.ParseArguments(argv)
-        if arguments.IsNone
-        then
-            exitCode <- 1
-        else
-            let workingDirectory = if String.IsNullOrEmpty(arguments.Value.WorkingDirectory) 
-                                   then Environment.NewLine
-                                   else arguments.Value.WorkingDirectory
-            let files = if arguments.Value.IsFileNamePatternRegex
-                        then getFilesByRegexPattern workingDirectory (arguments.Value.FileNameRegexPattern)
-                        else getFilesByWildcard workingDirectory (arguments.Value.FileNamePattern)                    
+        match CommandLineOptions.ParseArguments(argv) with
+        | None -> exitCode <- 1
+        | Some(arguments) ->
+            let workingDirectory = if String.IsNullOrEmpty(arguments.WorkingDirectory) 
+                                   then Environment.CurrentDirectory
+                                   else arguments.WorkingDirectory
+            let files = if arguments.IsFileNamePatternRegex
+                        then getFilesByRegexPattern workingDirectory (arguments.FileNameRegexPattern)
+                        else getFilesByWildcard workingDirectory (arguments.FileNamePattern)                    
 
             ignore <|
-            if String.IsNullOrEmpty(arguments.Value.TextPattern)
+            if String.IsNullOrEmpty arguments.TextPattern
+                && String.IsNullOrEmpty arguments.TextRegexPattern
             then
+                printfn "Looking for '%s' ..." arguments.FileNamePattern
                 files                 
                 |> Seq.sortBy (fun file -> file.FullName)
                 // no 'lazy'-stuff here
@@ -120,8 +123,9 @@ let main argv =
                 |> joinLines
                 |> printfn "%s"
                 printfn "%i file(s) found." (Seq.length files)
-            else 
-                let result = files |> Seq.map (fun file -> getFileMatchInfo file arguments.Value)
+            else
+                printfn "Looking for '%s' in '%s' ..." arguments.TextPattern arguments.FileNamePattern
+                let result = files |> Seq.map (fun file -> getFileMatchInfo file arguments)
                                    |> Seq.where (fun matchInfo -> not(Seq.isEmpty matchInfo.MatchedLines))
                                    |> Seq.where (fun matchInfo -> not(matchInfo.ErrorOccurred))
 
@@ -130,9 +134,9 @@ let main argv =
                                         matchInfo.MatchedLines
                                         |> Seq.iter (fun (index, line) ->
                                                          printfn "    > line %i: %s" index (line.Trim())
-                                                     )
-                                    )
-                printfn "%i matching file(s) foiund." (Seq.length result)
+                                                    )
+                                   )
+                printfn "%i matching file(s) found." (Seq.length result)
 
             exitCode <- 0
     with

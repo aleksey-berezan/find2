@@ -5,7 +5,7 @@ open CommandLine
 open CommandLine.Text
 
 [<SealedAttribute>]
-type internal CommandLineOptions() =
+type CommandLineOptions() =
 
     // a lot of mutable stuff
     // just to fit integrate well with CommandLineParser lib
@@ -65,13 +65,15 @@ type internal CommandLineOptions() =
     static member ParseArguments (args:string[]) = 
         let options = CommandLineOptions()
           
-        if CommandLine.Parser.Default.ParseArguments(args, options)
-            then None
+        if not(CommandLine.Parser.Default.ParseArguments(args, options))
+            then
+                printfn "%s" (options.GetUsage().ToString())
+                None
         elif  String.IsNullOrEmpty(options.FileNameRegexPattern) 
                 && String.IsNullOrEmpty(options.FileNamePattern)
             then
                 printfn "%s" (options.GetUsage().ToString())
-                printfn "-f/--fileNamePattern and -x/--fileNameRegexPattern are not allowed to be used together."
+                printfn "At least -f/--fileNamePattern or -x/--fileNameRegexPattern should be specified."
                 None
         elif not(String.IsNullOrEmpty(options.FileNameRegexPattern))
                 && not(String.IsNullOrEmpty(options.FileNamePattern))
