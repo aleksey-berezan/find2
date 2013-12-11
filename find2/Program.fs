@@ -64,7 +64,7 @@ let internal matches (line:string) (options:CommandLineOptions) =
         if isTextPatternRegex
         then matchesRegex line pattern
         else (line |> up).Contains(pattern |> up)
-             && satisfiesGreps (line |> up) (options.GrepsString |> up)             
+             && satisfiesGreps (line |> up) (options.GrepsString |> up)
 
 let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) = 
     let pattern = if String.IsNullOrEmpty options.TextPattern
@@ -76,20 +76,22 @@ let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
     let isBinaryFile (fileInfo:FileInfo) =      
         [".exe"; ".dll"; ".pdb"; ".trc"]
         |> Seq.exists (fun ext -> ext = Path.GetExtension fileInfo.FullName)
-
-    if String.IsNullOrEmpty pattern
-        || isBinaryFile fileInfo
-        || skipLargeFiles && isTooLarge fileInfo
-    then FileMatchInfo.NoMatches fileInfo
-    else
-        match getFilesLines fileInfo.FullName with
-        | None -> FileMatchInfo.NoMatches fileInfo
-        | Some(fileLines) ->
-            fileLines
-            |> Seq.mapi (fun index line -> if matches line options then Some(index, line) else None)
-            |> Seq.where Option.isSome
-            |> Seq.map Option.get
-            |> (fun matchedLines -> FileMatchInfo.WithMatches fileInfo matchedLines)
+    async {
+        return (if String.IsNullOrEmpty pattern
+                        || isBinaryFile fileInfo
+                        || skipLargeFiles && isTooLarge fileInfo
+                then FileMatchInfo.NoMatches fileInfo
+                else
+                    match getFilesLines fileInfo.FullName with
+                    | None -> FileMatchInfo.NoMatches fileInfo
+                    | Some(fileLines) ->
+                        fileLines
+                        |> Seq.mapi (fun index line -> if matches line options then Some(index, line) else None)
+                        |> Seq.where Option.isSome
+                        |> Seq.map Option.get
+                        |> (fun matchedLines -> FileMatchInfo.WithMatches fileInfo matchedLines)
+                ) // return
+    }// async
 
 [<EntryPoint>]
 let main argv = 
@@ -126,7 +128,11 @@ let main argv =
             else
                 printfn "Looking for '%s' in '%s' ..." arguments.TextPattern arguments.FileNamePattern
                 let result = files |> Seq.map (fun file -> getFileMatchInfo file arguments)
-                                   |> Seq.where (fun matchInfo -> not(Seq.isEmpty matchInfo.MatchedLines))
+                                   |> Async.Parallel
+                                   |> Async.StartAsTask
+                                   |> (fun t -> t.Result)
+                                   |> Array.toSeq
+                                   |> Seq.where (fun matchInfo -> not(Seq.isEmpty matchInfo. MatchedLines))
                                    |> Seq.where (fun matchInfo -> not(matchInfo.ErrorOccurred))
 
                 result |> Seq.iter (fun matchInfo -> 
