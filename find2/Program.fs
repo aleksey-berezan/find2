@@ -123,8 +123,8 @@ let main argv =
                 // TODO: add 'lazy'-stuff in here
                 |> Seq.map (fun file -> (sprintf "> %s" (fileToUri file)))
                 |> joinLines
-                |> printfn "%s"
-                printfn "%i file(s) found." (Seq.length files)
+                |> (fun line -> emphasize { do! printfn  "%s" line } )
+                emphasize { do! printfn "%i file(s) found." (Seq.length files) }
             else
                 printfn "Looking for '%s' in '%s' ..." arguments.TextPattern arguments.FileNamePattern
                 let result = files |> Seq.map (fun file -> getFileMatchInfo file arguments)
@@ -136,17 +136,17 @@ let main argv =
                                    |> Seq.where (fun matchInfo -> not(matchInfo.ErrorOccurred))
 
                 result |> Seq.iter (fun matchInfo -> 
-                                        printfn "> %s" (fileToUri matchInfo.FileInfo)
+                                        emphasize { do! printfn "> %s" (fileToUri matchInfo.FileInfo) }
                                         matchInfo.MatchedLines
                                         |> Seq.iter (fun (index, line) ->
                                                          printfn "    > line %i: %s" index (line.Trim())
                                                     )
                                    )
-                printfn "%i matching file(s) found." (Seq.length result)
+                emphasize { do! printfn "%i matching file(s) found." (Seq.length result) }
 
             exitCode <- 0
     with
-    | :? AssertException as exc -> printfn "%s" (exc.ToString())
+    | :? AssertException as exc -> error { do! printfn "%s" (exc.ToString()) }
                                    exitCode <- 2
 
     exitCode

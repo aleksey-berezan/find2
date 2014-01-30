@@ -60,6 +60,7 @@
     <Compile Include="Assert.fs" />
     <Compile Include="CommandLineOptions.fs" />
     <Compile Include="FileMatchInfo.fs" />
+    <Compile Include="Printing.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <PropertyGroup>
