@@ -28,9 +28,6 @@ let internal getFilesByWildcard workingDirectory fileNamePattern =
     |> Seq.map tryGetFileInfo
     |> Seq.where Option.isSome
     |> Seq.map Option.get
-
-let internal fileToUri (file:FileInfo) =
-    sprintf "file://%s" (file.FullName.Replace(@"\", "/"))
      
 let internal joinLines (lines:seq<string>) = 
     String.Join(Environment.NewLine, lines)
@@ -121,7 +118,7 @@ let main argv =
                 |> Seq.sortBy (fun file -> file.FullName)
                 // no 'lazy'-stuff here
                 // TODO: add 'lazy'-stuff in here
-                |> Seq.map (fun file -> (sprintf "> %s" (fileToUri file)))
+                |> Seq.map (fun file -> (sprintf "> %s" file.FullName))
                 |> joinLines
                 |> (fun line -> emphasize { do! printfn  "%s" line } )
                 emphasize { do! printfn "%i file(s) found." (Seq.length files) }
@@ -136,7 +133,7 @@ let main argv =
                                    |> Seq.where (fun matchInfo -> not(matchInfo.ErrorOccurred))
 
                 result |> Seq.iter (fun matchInfo -> 
-                                        emphasize { do! printfn "> %s" (fileToUri matchInfo.FileInfo) }
+                                        emphasize { do! printfn "> %s" matchInfo.FileInfo.FullName }
                                         matchInfo.MatchedLines
                                         |> Seq.iter (fun (index, line) ->
                                                          printfn "    > line %i: %s" index (line.Trim())
