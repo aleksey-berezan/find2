@@ -3,6 +3,7 @@
 open System
 open CommandLine
 open CommandLine.Text
+open System.Linq
 
 [<SealedAttribute>]
 type CommandLineOptions() =
@@ -64,8 +65,12 @@ type CommandLineOptions() =
 
     static member ParseArguments (args:string[]) = 
         let options = CommandLineOptions()
-          
-        if not(CommandLine.Parser.Default.ParseArguments(args, options))
+
+        if args.Length = 1 && not(args.First().StartsWith("-"))
+            then
+                options.FileNamePattern <- args.First().Trim()
+                Some(options)
+        elif not(CommandLine.Parser.Default.ParseArguments(args, options))
             then
                 printfn "%s" (options.GetUsage().ToString())
                 None
