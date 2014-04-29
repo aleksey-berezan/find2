@@ -152,10 +152,11 @@ let main argv =
                 |> joinLines
                 |> (fun line -> emphasize { do! printfn  "%s" line } )
 
+                emphasize { do! printfn "%i file(s) found." (Seq.length files) }
+
                 if arguments.CopyPathToClip
                 then CopyFileNameToClipBoard results
 
-                emphasize { do! printfn "%i file(s) found." (Seq.length files) }
             else
                 printfn "Looking for '%s' in '%s' ..." arguments.TextPattern arguments.FileNamePattern
                 let results = files |> Seq.map (fun file -> getFileMatchInfo file arguments)
@@ -172,11 +173,12 @@ let main argv =
                                         matchInfo.MatchedLines
                                         |> Seq.iter (fun (index, line) ->
                                                          printfn "    > line %i: %s" index (line.Trim())))
-                emphasize { do! printfn "%i matching file(s) found." (Seq.length results) }
 
                 let toSelect = results |> Seq.map (fun (i, matchInfo) -> (i, matchInfo.FileInfo))
                 if arguments.CopyPathToClip
                 then CopyFileNameToClipBoard toSelect
+
+                emphasize { do! printfn "%i matching file(s) found." (Seq.length results) }
 
             exitCode <- 0
     with
