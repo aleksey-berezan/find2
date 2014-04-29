@@ -12,7 +12,7 @@ let internal tryGetFileInfo filePath =
     | :? FileNotFoundException as exc -> Debug.WriteLine(exc.Message)
                                          None
     | :? UnauthorizedAccessException as exc -> Debug.WriteLine(exc.Message)
-                                               None                                            
+                                               None
 
 let internal getFilesByRegexPattern workingDirectory fileNameRegexPattern = 
     Directory.EnumerateFiles(workingDirectory, "*", SearchOption.AllDirectories)
@@ -90,13 +90,41 @@ let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
                 ) // return
     }// async
 
+let rec readNumber() =
+    match (Console.ReadKey true).Key with
+    | ConsoleKey.Q -> None
+    | k when k >= ConsoleKey.D0 && k <= ConsoleKey.D9 -> Some(int(k) - int(ConsoleKey.D0))
+    | _ -> readNumber()
+
+let copyToClipBoard text = 
+    System.Windows.Forms.Clipboard.SetText(text)
+    printfn "Copied to clipboard: %s" text
+
+let CopyFileNameToClipBoard (results: seq<int*FileInfo>) =
+    match results.Count() with
+    | 0 -> ();
+    | 1 -> let _, file = results.First()
+           copyToClipBoard file.FullName
+    | _ -> printfn "Enter number of item  to copy to clipboard or 'q' ... "
+           match readNumber() with
+           | Some(num) ->
+                let _, file = if num > results.Count() - 1
+                              then results.Last()
+                              else results.Skip(num).First()
+                copyToClipBoard file.FullName
+           | None -> ();
+
 [<EntryPoint>]
+[<STAThread>]
 let main argv = 
 
     let mutable exitCode = 2
     // pure imperative code, not cool ...
     // TODO: rewrite in as declarative manner as possible
     // with all the monads and stuff ...
+
+    // no 'lazy'-stuff here
+    // TODO: add 'lazy'-stuff in here
 
     try
         match CommandLineOptions.ParseArguments(argv) with
@@ -107,39 +135,48 @@ let main argv =
                                    else arguments.WorkingDirectory
             let files = if arguments.IsFileNamePatternRegex
                         then getFilesByRegexPattern workingDirectory (arguments.FileNameRegexPattern)
-                        else getFilesByWildcard workingDirectory (arguments.FileNamePattern)                    
+                        else getFilesByWildcard workingDirectory (arguments.FileNamePattern)
 
             ignore <|
             if String.IsNullOrEmpty arguments.TextPattern
                 && String.IsNullOrEmpty arguments.TextRegexPattern
             then
                 printfn "Looking for '%s' ..." arguments.FileNamePattern
-                files                 
-                |> Seq.sortBy (fun file -> file.FullName)
-                // no 'lazy'-stuff here
-                // TODO: add 'lazy'-stuff in here
-                |> Seq.map (fun file -> (sprintf "> %s" file.FullName))
+                let results = files
+                              |> Seq.sortBy (fun file -> file.FullName)
+                              |> Seq.mapi (fun i file -> i, file)
+                              |> Seq.toArray
+
+                results
+                |> Seq.map (fun (i, file) -> sprintf "%i > %s" i file.FullName)
                 |> joinLines
                 |> (fun line -> emphasize { do! printfn  "%s" line } )
+
+                if arguments.CopyPathToClip
+                then CopyFileNameToClipBoard results
+
                 emphasize { do! printfn "%i file(s) found." (Seq.length files) }
             else
                 printfn "Looking for '%s' in '%s' ..." arguments.TextPattern arguments.FileNamePattern
-                let result = files |> Seq.map (fun file -> getFileMatchInfo file arguments)
-                                   |> Async.Parallel
-                                   |> Async.StartAsTask
-                                   |> (fun t -> t.Result)
-                                   |> Array.toSeq
-                                   |> Seq.where (fun matchInfo -> not(Seq.isEmpty matchInfo. MatchedLines))
-                                   |> Seq.where (fun matchInfo -> not(matchInfo.ErrorOccurred))
+                let results = files |> Seq.map (fun file -> getFileMatchInfo file arguments)
+                                    |> Async.Parallel
+                                    |> Async.StartAsTask
+                                    |> (fun t -> t.Result)
+                                    |> Array.toSeq
+                                    |> Seq.where (fun matchInfo -> not(Seq.isEmpty matchInfo.MatchedLines))
+                                    |> Seq.where (fun matchInfo -> not(matchInfo.ErrorOccurred))
+                                    |> Seq.mapi (fun i matchInfo -> (i, matchInfo))
 
-                result |> Seq.iter (fun matchInfo -> 
-                                        emphasize { do! printfn "> %s" matchInfo.FileInfo.FullName }
+                results |> Seq.iter (fun (i, matchInfo) ->
+                                        emphasize { do! printfn "%i > %s" i matchInfo.FileInfo.FullName }
                                         matchInfo.MatchedLines
                                         |> Seq.iter (fun (index, line) ->
-                                                         printfn "    > line %i: %s" index (line.Trim())
-                                                    )
-                                   )
-                emphasize { do! printfn "%i matching file(s) found." (Seq.length result) }
+                                                         printfn "    > line %i: %s" index (line.Trim())))
+                emphasize { do! printfn "%i matching file(s) found." (Seq.length results) }
+
+                let toSelect = results |> Seq.map (fun (i, matchInfo) -> (i, matchInfo.FileInfo))
+                if arguments.CopyPathToClip
+                then CopyFileNameToClipBoard toSelect
 
             exitCode <- 0
     with
