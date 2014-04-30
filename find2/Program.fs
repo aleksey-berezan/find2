@@ -97,15 +97,16 @@ let rec readNumber() =
     | _ -> readNumber()
 
 let CopyToClipBoard text = 
-    System.Windows.Forms.Clipboard.SetText(text)
-    printfn "Copied to clipboard: %s\n" text
+    let toCopy = sprintf "\"%s\"" text
+    System.Windows.Forms.Clipboard.SetText(toCopy)
+    printfn "Copied to clipboard: %s\n" toCopy
 
 let CopyFileNameToClipBoard (results: seq<int*FileInfo>) =
     match results.Count() with
     | 0 -> ();
     | 1 -> let _, file = results.First()
            CopyToClipBoard file.FullName
-    | x when x <= 10 ->        
+    | x when x <= 10 ->
         printfn "\nEnter number of item  to copy to clipboard or 'q' ... "
         match readNumber() with
         | Some(num) ->
