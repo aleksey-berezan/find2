@@ -96,23 +96,25 @@ let rec readNumber() =
     | k when k >= ConsoleKey.D0 && k <= ConsoleKey.D9 -> Some(int(k) - int(ConsoleKey.D0))
     | _ -> readNumber()
 
-let copyToClipBoard text = 
+let CopyToClipBoard text = 
     System.Windows.Forms.Clipboard.SetText(text)
-    printfn "Copied to clipboard: %s" text
+    printfn "Copied to clipboard: %s\n" text
 
 let CopyFileNameToClipBoard (results: seq<int*FileInfo>) =
     match results.Count() with
     | 0 -> ();
     | 1 -> let _, file = results.First()
-           copyToClipBoard file.FullName
-    | _ -> printfn "Enter number of item  to copy to clipboard or 'q' ... "
-           match readNumber() with
-           | Some(num) ->
-                let _, file = if num > results.Count() - 1
-                              then results.Last()
-                              else results.Skip(num).First()
-                copyToClipBoard file.FullName
-           | None -> ();
+           CopyToClipBoard file.FullName
+    | x when x <= 10 ->        
+        printfn "\nEnter number of item  to copy to clipboard or 'q' ... "
+        match readNumber() with
+        | Some(num) ->
+             let _, file = if num > results.Count() - 1
+                           then results.Last()
+                           else results.Skip(num).First()
+             CopyToClipBoard file.FullName
+        | None -> ();
+    | _ -> ();
 
 [<EntryPoint>]
 [<STAThread>]
