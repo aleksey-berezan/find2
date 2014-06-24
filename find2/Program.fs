@@ -9,10 +9,12 @@ let internal tryGetFileInfo filePath =
     try
         Some(FileInfo filePath)
     with
-    | :? FileNotFoundException as exc -> Debug.WriteLine(exc.Message)
+    | :? FileNotFoundException as exc -> Debug.WriteLine(filePath + ": " + exc.Message)
                                          None
-    | :? UnauthorizedAccessException as exc -> Debug.WriteLine(exc.Message)
+    | :? UnauthorizedAccessException as exc -> Debug.WriteLine(filePath + ": " + exc.Message)
                                                None
+    | :? PathTooLongException as exc -> Debug.WriteLine(filePath + ": " + exc.Message)
+                                        None
 
 let internal getFilesByRegexPattern workingDirectory fileNameRegexPattern = 
     Directory.EnumerateFiles(workingDirectory, "*", SearchOption.AllDirectories)
