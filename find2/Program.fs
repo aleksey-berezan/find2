@@ -16,7 +16,7 @@ let internal tryGetFileInfo filePath =
     | :? PathTooLongException as exc -> Debug.WriteLine(filePath + ": " + exc.Message)
                                         None
 
-let internal getFilesByRegexPattern workingDirectory fileNameRegexPattern = 
+let internal getFilesByRegexPattern workingDirectory fileNameRegexPattern =
     Directory.EnumerateFiles(workingDirectory, "*", SearchOption.AllDirectories)
     // no parallel so far.
     // TODO: add f# power pack for parallelism
@@ -25,28 +25,28 @@ let internal getFilesByRegexPattern workingDirectory fileNameRegexPattern =
     |> Seq.where Option.isSome
     |> Seq.map Option.get
 
-let internal getFilesByWildcard workingDirectory fileNamePattern = 
+let internal getFilesByWildcard workingDirectory fileNamePattern =
     Directory.EnumerateFiles(workingDirectory, fileNamePattern, SearchOption.AllDirectories)
     |> Seq.map tryGetFileInfo
     |> Seq.where Option.isSome
     |> Seq.map Option.get
-     
-let internal joinLines (lines:seq<string>) = 
+
+let internal joinLines (lines:seq<string>) =
     String.Join(Environment.NewLine, lines)
 
-let internal getFilesLines (filePath:string) = 
+let internal getFilesLines (filePath:string) =
     try
         Some(File.ReadAllLines filePath)
-    with 
+    with
     | exc -> let message = sprintf "Unhandled exception occurred on reading lines from '%s'. Details:\n%s"
                                     filePath (exc.ToString())
              Debug.WriteLine message
              Trace.WriteLine message
              None
 
-let internal matches (line:string) (options:CommandLineOptions) = 
+let internal matches (line:string) (options:CommandLineOptions) =
     let matchesRegex input pattern = Regex.IsMatch(input, pattern, RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
-    let satisfiesGreps (l:string) (grepsPattern:string) = 
+    let satisfiesGreps (l:string) (grepsPattern:string) =
         String.IsNullOrEmpty grepsPattern
         || grepsPattern.Split([|',';';'|]) |> Array.forall (fun x -> l.Contains(x))
     let hasLotsOfNonPrintableCharacters l = Regex.IsMatch(l, @"[^ -~\t\n]{3}")
@@ -65,14 +65,17 @@ let internal matches (line:string) (options:CommandLineOptions) =
         else (line |> up).Contains(pattern |> up)
              && satisfiesGreps (line |> up) (options.GrepsString |> up)
 
-let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) = 
-    let pattern = if String.IsNullOrEmpty options.TextPattern
-                      then options.TextRegexPattern
-                      else options.TextPattern
+let getPattern (options: CommandLineOptions) =
+    if String.IsNullOrEmpty options.TextPattern
+        then options.TextRegexPattern
+        else options.TextPattern
+
+let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
+    let pattern = getPattern options
     let isTextPatternRegex = options.IsTextPatternRegex
     let skipLargeFiles = not(options.MatchLargeFiles)
-    let isTooLarge (fileInfo:FileInfo) = fileInfo.Length > int64(64 * 1024 * 1024)// 64 mb
-    let isBinaryFile (fileInfo:FileInfo) =      
+    let isTooLarge (fileInfo:FileInfo) = fileInfo.Length > int64(16 * 1024 * 1024)// 16 mb
+    let isBinaryFile (fileInfo:FileInfo) =
         [".exe"; ".dll"; ".pdb"; ".trc"]
         |> Seq.exists (fun ext -> ext = Path.GetExtension fileInfo.FullName)
     async {
@@ -98,7 +101,7 @@ let rec readNumber() =
     | k when k >= ConsoleKey.D0 && k <= ConsoleKey.D9 -> Some(int(k) - int(ConsoleKey.D0))
     | _ -> readNumber()
 
-let CopyToClipBoard text = 
+let CopyToClipBoard text =
     let toCopy = sprintf "\"%s\"" text
     System.Windows.Forms.Clipboard.SetText(toCopy)
     printfn "Copied to clipboard: %s\n" toCopy
@@ -121,7 +124,7 @@ let CopyFileNameToClipBoard (results: seq<int*FileInfo>) =
 
 [<EntryPoint>]
 [<STAThread>]
-let main argv = 
+let main argv =
 
     let mutable exitCode = 2
     // pure imperative code, not cool ...
@@ -135,7 +138,7 @@ let main argv =
         match CommandLineOptions.ParseArguments(argv) with
         | None -> exitCode <- 1
         | Some(arguments) ->
-            let workingDirectory = if String.IsNullOrEmpty(arguments.WorkingDirectory) 
+            let workingDirectory = if String.IsNullOrEmpty(arguments.WorkingDirectory)
                                    then Environment.CurrentDirectory
                                    else arguments.WorkingDirectory
             let files = if arguments.IsFileNamePatternRegex
@@ -163,7 +166,7 @@ let main argv =
                 then CopyFileNameToClipBoard results
 
             else
-                printfn "Looking for '%s' in '%s' ..." arguments.TextPattern arguments.FileNamePattern
+                printfn "Looking for '%s' in '%s' ..." (getPattern arguments) arguments.FileNamePattern
                 let results = files |> Seq.map (fun file -> getFileMatchInfo file arguments)
                                     |> Async.Parallel
                                     |> Async.StartAsTask
