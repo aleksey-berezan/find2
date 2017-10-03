@@ -9,27 +9,52 @@ let internal tryGetFileInfo filePath =
     try
         Some(FileInfo filePath)
     with
-    | :? FileNotFoundException as exc -> Debug.WriteLine(filePath + ": " + exc.Message)
-                                         None
-    | :? UnauthorizedAccessException as exc -> Debug.WriteLine(filePath + ": " + exc.Message)
-                                               None
-    | :? PathTooLongException as exc -> Debug.WriteLine(filePath + ": " + exc.Message)
-                                        None
+    | :? FileNotFoundException as exc -> Console.WriteLine(filePath + ": " + exc.Message); None
+    | :? UnauthorizedAccessException as exc -> Console.WriteLine(filePath + ": " + exc.Message); None
+    | :? PathTooLongException as exc -> Console.WriteLine(filePath + ": " + exc.Message); None
+    | :? IOException as exc -> Console.WriteLine(filePath + ": " + exc.Message); None
 
-let internal getFilesByRegexPattern workingDirectory fileNameRegexPattern =
-    Directory.EnumerateFiles(workingDirectory, "*", SearchOption.AllDirectories)
+let internal tryGetDirectoryFiles directory =
+    try
+        Some <| Directory.GetFiles (directory,  "*", SearchOption.TopDirectoryOnly)
+    with
+        | :? FileNotFoundException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+        | :? UnauthorizedAccessException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+        | :? PathTooLongException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+        | :? IOException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+
+let internal tryGetDirectorySubDirectories directory =
+    try
+        Some <| Directory.GetDirectories (directory,  "*", SearchOption.TopDirectoryOnly)
+    with
+        | :? FileNotFoundException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+        | :? UnauthorizedAccessException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+        | :? PathTooLongException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+        | :? IOException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+
+let rec internal enumerateAllFiles currentDirectory = seq {
+        match tryGetDirectoryFiles currentDirectory with
+        | Some files -> for f in files do yield f
+                        match tryGetDirectorySubDirectories currentDirectory with
+                        | Some dirs -> for d in dirs do
+                                         for f in (enumerateAllFiles d) do yield f
+                        | None -> ()
+        | None -> ()
+    }
+let internal getFilesByRegexPattern directory regex =
+    enumerateAllFiles directory
     // no parallel so far.
     // TODO: add f# power pack for parallelism
-    |> Seq.where (fun filePath -> Regex.IsMatch(filePath, fileNameRegexPattern, RegexOptions.Compiled ||| RegexOptions.IgnoreCase))
+    |> Seq.where (fun filePath -> Regex.IsMatch(filePath, regex, RegexOptions.Compiled ||| RegexOptions.IgnoreCase))
     |> Seq.map (fun filePath -> (tryGetFileInfo filePath))
     |> Seq.where Option.isSome
     |> Seq.map Option.get
 
-let internal getFilesByWildcard workingDirectory fileNamePattern =
-    Directory.EnumerateFiles(workingDirectory, fileNamePattern, SearchOption.AllDirectories)
-    |> Seq.map tryGetFileInfo
-    |> Seq.where Option.isSome
-    |> Seq.map Option.get
+let internal getFilesByWildcard directory fileNamePattern =
+    let regex = "^" + Regex.Escape(fileNamePattern)
+                           .Replace("\\*", ".*")
+                           .Replace("\\?", ".") + "$";
+    getFilesByRegexPattern directory regex
 
 let internal joinLines (lines:seq<string>) =
     String.Join(Environment.NewLine, lines)
@@ -40,8 +65,9 @@ let internal getFilesLines (filePath:string) =
     with
     | exc -> let message = sprintf "Unhandled exception occurred on reading lines from '%s'. Details:\n%s"
                                     filePath (exc.ToString())
-             Debug.WriteLine message
+             Console.WriteLine exc.Message
              Trace.WriteLine message
+             Debug.WriteLine message
              None
 
 let internal getPattern (options: CommandLineOptions) =
