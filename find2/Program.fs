@@ -46,9 +46,6 @@ let internal getFilesLines (filePath:string) =
 
 let internal matches (line:string) (options:CommandLineOptions) =
     let matchesRegex input pattern = Regex.IsMatch(input, pattern, RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
-    let satisfiesGreps (l:string) (grepsPattern:string) =
-        String.IsNullOrEmpty grepsPattern
-        || grepsPattern.Split([|',';';'|]) |> Array.forall (fun x -> l.Contains(x))
     let hasLotsOfNonPrintableCharacters l = Regex.IsMatch(l, @"[^ -~\t\n]{3}")
     let up (s:string) = s.ToUpperInvariant()
 
@@ -63,7 +60,6 @@ let internal matches (line:string) (options:CommandLineOptions) =
         if isTextPatternRegex
         then matchesRegex line pattern
         else (line |> up).Contains(pattern |> up)
-             && satisfiesGreps (line |> up) (options.GrepsString |> up)
 
 let getPattern (options: CommandLineOptions) =
     if String.IsNullOrEmpty options.TextPattern

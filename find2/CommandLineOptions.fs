@@ -41,12 +41,6 @@ type CommandLineOptions() =
         , HelpText = "Working directory to start search with.")>]
     member val WorkingDirectory = "" with get, set
 
-    [<Option('g'
-        , "greps"
-        , DefaultValue = ""
-        , HelpText = "Greps string to filter on file names.")>]
-    member val GrepsString = "" with get, set
-
     [<Option('l'
         , "matchLargeFiles"
         , DefaultValue = false
