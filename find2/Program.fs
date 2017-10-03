@@ -118,33 +118,6 @@ let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
                 ) // return
     }// async
 
-let rec readNumber() =
-    match (Console.ReadKey true).Key with
-    | ConsoleKey.Q -> None
-    | k when k >= ConsoleKey.D0 && k <= ConsoleKey.D9 -> Some(int(k) - int(ConsoleKey.D0))
-    | _ -> readNumber()
-
-let CopyToClipBoard text =
-    let toCopy = sprintf "\"%s\"" text
-    System.Windows.Forms.Clipboard.SetText(toCopy)
-    printfn "Copied to clipboard: %s\n" toCopy
-
-let CopyFileNameToClipBoard (results: seq<int*FileInfo>) =
-    match results.Count() with
-    | 0 -> ();
-    | 1 -> let _, file = results.First()
-           CopyToClipBoard file.FullName
-    | x when x <= 10 ->
-        printfn "\nEnter number of item  to copy to clipboard or 'q' ... "
-        match readNumber() with
-        | Some(num) ->
-             let _, file = if num > results.Count() - 1
-                           then results.Last()
-                           else results.Skip(num).First()
-             CopyToClipBoard file.FullName
-        | None -> ();
-    | _ -> ();
-
 [<EntryPoint>]
 [<STAThread>]
 let main argv =
