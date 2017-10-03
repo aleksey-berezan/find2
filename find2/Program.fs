@@ -44,27 +44,28 @@ let internal getFilesLines (filePath:string) =
              Trace.WriteLine message
              None
 
-let internal matches (line:string) (options:CommandLineOptions) =
-    let matchesRegex input pattern = Regex.IsMatch(input, pattern, RegexOptions.Compiled ||| RegexOptions.IgnoreCase)
-    let hasLotsOfNonPrintableCharacters l = Regex.IsMatch(l, @"[^ -~\t\n]{3}")
-    let up (s:string) = s.ToUpperInvariant()
+let internal getPattern (options: CommandLineOptions) =
+    if String.IsNullOrEmpty options.TextPattern
+       then options.TextRegexPattern
+       else options.TextPattern
 
-    let pattern = if String.IsNullOrEmpty options.TextPattern
-                      then options.TextRegexPattern
-                      else options.TextPattern
-    let isTextPatternRegex = options.IsTextPatternRegex
+let internal matches (line:string) (options:CommandLineOptions) =
+    let regexOptions = if options.CaseSensitive
+                       then RegexOptions.Compiled
+                       else RegexOptions.Compiled ||| RegexOptions.IgnoreCase
+    let stringComparison = if options.CaseSensitive
+                           then StringComparison.Ordinal
+                           else StringComparison.OrdinalIgnoreCase
+    let matchesRegex input pattern = Regex.IsMatch(input, pattern, regexOptions)
+    let hasLotsOfNonPrintableCharacters l = Regex.IsMatch(l, @"[^ -~\t\n]{3}")
 
     if hasLotsOfNonPrintableCharacters line
     then false
     else
-        if isTextPatternRegex
+        let pattern = getPattern options
+        if options.IsTextPatternRegex
         then matchesRegex line pattern
-        else (line |> up).Contains(pattern |> up)
-
-let getPattern (options: CommandLineOptions) =
-    if String.IsNullOrEmpty options.TextPattern
-        then options.TextRegexPattern
-        else options.TextPattern
+        else line.IndexOf(pattern, stringComparison) >= 0
 
 let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
     let pattern = getPattern options
@@ -126,6 +127,8 @@ let main argv =
     // pure imperative code, not cool ...
     // TODO: rewrite in as declarative manner as possible
     // with all the monads and stuff ...
+    // 
+    // 2013's called, they want their monads back
 
     // no 'lazy'-stuff here
     // TODO: add 'lazy'-stuff in here

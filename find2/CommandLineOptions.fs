@@ -41,6 +41,12 @@ type CommandLineOptions() =
         , HelpText = "Working directory to start search with.")>]
     member val WorkingDirectory = "" with get, set
 
+    [<Option('c'
+        , "caseSensitive"
+        , DefaultValue = false
+        , HelpText = "Case sensitive search. False by default.")>]
+    member val CaseSensitive = false with get, set
+
     [<Option('l'
         , "matchLargeFiles"
         , DefaultValue = false
