@@ -47,12 +47,6 @@ type CommandLineOptions() =
         , HelpText = "Greps string to filter on file names.")>]
     member val GrepsString = "" with get, set
 
-    [<Option('c'
-        , "copyPathToClip"
-        , DefaultValue = false
-        , HelpText = "If true - the file path(choosed by user or the only one) will be copied to the clipboard.")>]
-    member val CopyPathToClip = false with get, set
-
     [<Option('l'
         , "matchLargeFiles"
         , DefaultValue = false
