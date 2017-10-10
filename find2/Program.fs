@@ -1,46 +1,47 @@
 ﻿open System
-open System.Diagnostics
 open System.IO
-open System.Linq
 open System.Text.RegularExpressions
 open find2
+open System.Threading.Tasks
 
-let internal tryGetFileInfo filePath =
-    try
-        Some(FileInfo filePath)
-    with
-    | :? FileNotFoundException as exc -> Console.WriteLine(filePath + ": " + exc.Message); None
-    | :? UnauthorizedAccessException as exc -> Console.WriteLine(filePath + ": " + exc.Message); None
-    | :? PathTooLongException as exc -> Console.WriteLine(filePath + ": " + exc.Message); None
-    | :? IOException as exc -> Console.WriteLine(filePath + ": " + exc.Message); None
+let internal Trace (message:string) = 
+    Console.WriteLine message
+    System.Diagnostics.Debug.WriteLine message
+    System.Diagnostics.Trace.WriteLine message
 
-let internal tryGetDirectoryFiles directory =
+let internal tryFsOperation f x =
+    let excToString (exc:Exception) = x.ToString() + ": " + exc.Message
     try
-        Some <| Directory.GetFiles (directory,  "*", SearchOption.TopDirectoryOnly)
+        f x |> Some
     with
-        | :? FileNotFoundException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
-        | :? UnauthorizedAccessException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
-        | :? PathTooLongException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
-        | :? IOException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+    | :? FileNotFoundException as exc -> exc |> excToString |> Trace; None
+    | :? UnauthorizedAccessException as exc -> exc |> excToString |> Trace; None
+    | :? PathTooLongException as exc -> exc |> excToString |> Trace; None
+    | :? IOException as exc -> exc |> excToString |> Trace; None
 
-let internal tryGetDirectorySubDirectories directory =
-    try
-        Some <| Directory.GetDirectories (directory,  "*", SearchOption.TopDirectoryOnly)
-    with
-        | :? FileNotFoundException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
-        | :? UnauthorizedAccessException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
-        | :? PathTooLongException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
-        | :? IOException as exc -> Console.WriteLine(directory + ": " + exc.Message); None
+let internal tryGetFileInfo =
+    tryFsOperation (fun filePath -> FileInfo filePath)
+
+let internal tryGetDirectoryFiles =
+    tryFsOperation (fun directory -> Directory.GetFiles (directory,  "*", SearchOption.TopDirectoryOnly))
+
+let internal tryGetSubDirectories =
+    tryFsOperation (fun directory -> Directory.GetDirectories (directory,  "*", SearchOption.TopDirectoryOnly))
+
+let internal getFilesLines =
+    tryFsOperation File.ReadAllLines
 
 let rec internal enumerateAllFiles currentDirectory = seq {
         match tryGetDirectoryFiles currentDirectory with
         | Some files -> for f in files do yield f
-                        match tryGetDirectorySubDirectories currentDirectory with
+                        match tryGetSubDirectories currentDirectory with
                         | Some dirs -> for d in dirs do
-                                         for f in (enumerateAllFiles d) do yield f
+                                         for f in (enumerateAllFiles d) do
+                                            yield f
                         | None -> ()
         | None -> ()
     }
+
 let internal getFilesByRegexPattern directory regex =
     enumerateAllFiles directory
     // no parallel so far.
@@ -58,17 +59,6 @@ let internal getFilesByWildcard directory fileNamePattern =
 
 let internal joinLines (lines:seq<string>) =
     String.Join(Environment.NewLine, lines)
-
-let internal getFilesLines (filePath:string) =
-    try
-        Some(File.ReadAllLines filePath)
-    with
-    | exc -> let message = sprintf "Unhandled exception occurred on reading lines from '%s'. Details:\n%s"
-                                    filePath (exc.ToString())
-             Console.WriteLine exc.Message
-             Trace.WriteLine message
-             Debug.WriteLine message
-             None
 
 let internal getPattern (options: CommandLineOptions) =
     if String.IsNullOrEmpty options.TextPattern
@@ -95,7 +85,6 @@ let internal matches (line:string) (options:CommandLineOptions) =
 
 let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
     let pattern = getPattern options
-    let isTextPatternRegex = options.IsTextPatternRegex
     let skipLargeFiles = not(options.MatchLargeFiles)
     let isTooLarge (fileInfo:FileInfo) = fileInfo.Length > int64(16 * 1024 * 1024)// 16 mb
     let isBinaryFile (fileInfo:FileInfo) =
@@ -151,7 +140,6 @@ let main argv =
                 let results = files
                               |> Seq.sortBy (fun file -> file.FullName)
                               |> Seq.mapi (fun i file -> i, file)
-                              |> Seq.toArray
 
                 results
                 |> Seq.map (fun (i, file) -> sprintf "%i > %s" i file.FullName)
@@ -159,24 +147,20 @@ let main argv =
                 |> (fun line -> emphasize { do! printfn  "%s" line } )
 
                 emphasize { do! printfn "%i file(s) found." (Seq.length files) }
-
             else
                 printfn "Looking for '%s' in '%s' ..." (getPattern arguments) arguments.FileNamePattern
                 let results = files |> Seq.map (fun file -> getFileMatchInfo file arguments)
                                     |> Async.Parallel
                                     |> Async.StartAsTask
                                     |> (fun t -> t.Result)
-                                    |> Array.toSeq
                                     |> Seq.where (fun matchInfo -> not(Seq.isEmpty matchInfo.MatchedLines))
                                     |> Seq.where (fun matchInfo -> not(matchInfo.ErrorOccurred))
                                     |> Seq.mapi (fun i matchInfo -> (i, matchInfo))
-
                 results |> Seq.iter (fun (i, matchInfo) ->
                                         emphasize { do! printfn "%i > %s" i matchInfo.FileInfo.FullName }
                                         matchInfo.MatchedLines
                                         |> Seq.iter (fun (index, line) ->
                                                          printfn "    > line %i: %s" index (line.Trim())))
-
                 emphasize { do! printfn "%i matching file(s) found." (Seq.length results) }
 
             exitCode <- 0
