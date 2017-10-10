@@ -3,6 +3,7 @@ open System.IO
 open System.Text.RegularExpressions
 open find2
 open System.Threading.Tasks
+open FileUtils
 
 let internal Trace (message:string) = 
     Console.WriteLine message
@@ -87,13 +88,10 @@ let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
     let pattern = getPattern options
     let skipLargeFiles = not(options.MatchLargeFiles)
     let isTooLarge (fileInfo:FileInfo) = fileInfo.Length > int64(16 * 1024 * 1024)// 16 mb
-    let isBinaryFile (fileInfo:FileInfo) =
-        [".exe"; ".dll"; ".pdb"; ".trc"]
-        |> Seq.exists (fun ext -> ext = Path.GetExtension fileInfo.FullName)
     async {
         return (if String.IsNullOrEmpty pattern
-                        || isBinaryFile fileInfo
                         || skipLargeFiles && isTooLarge fileInfo
+                        || isBinary fileInfo
                 then FileMatchInfo.NoMatches fileInfo
                 else
                     match getFilesLines fileInfo.FullName with

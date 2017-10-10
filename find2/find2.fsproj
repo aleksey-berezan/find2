@@ -59,6 +59,7 @@
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="AssertException.fs" />
     <Compile Include="Assert.fs" />
+    <Compile Include="FileUtil.fs" />
     <Compile Include="CommandLineOptions.fs" />
     <Compile Include="FileMatchInfo.fs" />
     <Compile Include="Printing.fs" />
