@@ -29,8 +29,15 @@ let internal tryGetDirectoryFiles =
 let internal tryGetSubDirectories =
     tryFsOperation (fun directory -> Directory.GetDirectories (directory,  "*", SearchOption.TopDirectoryOnly))
 
-let internal getFilesLines =
-    tryFsOperation File.ReadAllLines
+let tryOpenSr (filePath: string) =
+    match filePath |> (tryFsOperation (fun f -> new FileStream(f, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))) with
+    | None -> None
+    | Some x -> x |> (tryFsOperation (fun fs -> new StreamReader (fs)))
+
+let readFileLinesFrom (sr: StreamReader) = seq {
+    while not sr.EndOfStream do
+        yield sr.ReadLine ()
+}
 
 let rec internal enumerateAllFiles currentDirectory = seq {
         match tryGetDirectoryFiles currentDirectory with
@@ -94,13 +101,15 @@ let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
                         || isBinary fileInfo
                 then FileMatchInfo.NoMatches fileInfo
                 else
-                    match getFilesLines fileInfo.FullName with
+                    match tryOpenSr fileInfo.FullName with
                     | None -> FileMatchInfo.NoMatches fileInfo
-                    | Some(fileLines) ->
-                        fileLines
+                    | Some x ->
+                        use sr = x
+                        readFileLinesFrom sr
                         |> Seq.mapi (fun index line -> if matches line options then Some(index, line) else None)
                         |> Seq.where Option.isSome
                         |> Seq.map Option.get
+                        |> Seq.toArray
                         |> (fun matchedLines -> FileMatchInfo.WithMatches fileInfo matchedLines)
                 ) // return
     }// async
