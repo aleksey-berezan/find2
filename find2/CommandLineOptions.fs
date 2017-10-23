@@ -14,13 +14,13 @@ type CommandLineOptions() =
     [<Option('t'
         , "textPattern"
         , DefaultValue = ""
-        , HelpText = "Text pattern to search. Case insensitive.")>]
+        , HelpText = "Text pattern to search. Case insensitive by default.")>]
     member val TextPattern = "" with get, set
 
     [<Option('r'
         , "textRegexPattern"
         , DefaultValue = ""
-        , HelpText = "Text regex pattern to search. Case insensitive.")>]
+        , HelpText = "Text regex pattern to search. Case insensitive by default.")>]
     member val TextRegexPattern = "" with get, set
 
     [<Option('f'
