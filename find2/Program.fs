@@ -6,7 +6,7 @@ open System.Threading.Tasks
 open FileUtils
 
 let internal Trace (message:string) = 
-    Console.WriteLine message
+    Console.Error.WriteLine message
     System.Diagnostics.Debug.WriteLine message
     System.Diagnostics.Trace.WriteLine message
 
