@@ -86,10 +86,11 @@ let internal matches (line:string) (options:CommandLineOptions) =
     if hasLotsOfNonPrintableCharacters line
     then false
     else
-        let pattern = getPattern options
-        if options.IsTextPatternRegex
-        then matchesRegex line pattern
-        else line.IndexOf(pattern, stringComparison) >= 0
+        match (options.HasTextPattern, options.HasTextPatternRegex) with
+        | (true, false) -> line.IndexOf(options.TextPattern, stringComparison) >= 0
+        | (false, true) -> matchesRegex line options.TextRegexPattern
+        | (true, true) -> line.IndexOf(options.TextPattern, stringComparison) >= 0 && matchesRegex line options.TextRegexPattern
+        | (false, false) -> failwithf "Unexpected input: both text and regex are empty"
 
 let internal getFileMatchInfo (fileInfo:FileInfo) (options:CommandLineOptions) =
     let pattern = getPattern options

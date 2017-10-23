@@ -53,7 +53,8 @@ type CommandLineOptions() =
         , HelpText = "Examine contents of large files or not. False by default.")>]
     member val MatchLargeFiles = false with get, set
 
-    member this.IsTextPatternRegex with get() = not (String.IsNullOrEmpty(this.TextRegexPattern))
+    member this.HasTextPatternRegex with get() = not (String.IsNullOrEmpty(this.TextRegexPattern))
+    member this.HasTextPattern with get() = not (String.IsNullOrEmpty(this.TextPattern))
     member this.IsFileNamePatternRegex with get() = not (String.IsNullOrEmpty(this.FileNameRegexPattern))
 
     [<ParserStateAttribute>]
